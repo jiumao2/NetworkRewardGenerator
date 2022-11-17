@@ -1,0 +1,25 @@
+
+default: subdirs
+
+subdirs:
+	cd src
+	nmake -f Makefile.win
+dir
+
+mrproper:
+	cd src
+	nmake -f Makefile.win mrproper
+	cd ..
+	del /Q csim.*
+
+clean:
+	cd src
+	nmake -f Makefile.win clean
+	cd ..
+	del /Q csim.*
+
+distclean:
+	cd src
+	nmake -f Makefile.win distclean
+	cd ..
+	del /Q demos\*.mat

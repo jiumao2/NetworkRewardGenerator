@@ -1,0 +1,34 @@
+
+This How-To describes how to compile the csim MEX extension
+(Tested with Matlab R2013a and MS VC Express 2012). 
+
+1) Run a command line interpreter (cmd) AS ADMINISTRATOR
+--------------------------------------------------------
+
+   Find: All Programs -> Accessoirs -> Command Prompt
+   Right Click "Command Prompt" and select "Run as administrator"
+   
+2) Enable the MS Visual Studio command line environment
+-------------------------------------------------------
+
+   To do this enter the following into the command line
+   ( Adapt to your environment where necessary )
+
+   set MSVCVER=11.0 
+   "C:\Program Files (x86)\Microsoft Visual Studio %MSVCVER%\VC\bin\x86_amd64\vcvarsx86_amd64.bat"
+
+
+3) Compile the csim MEX-Extension
+---------------------------------
+
+   To do this enter the following into the command line
+   ( Adapt to your environment where necessary )
+   
+   a) Change to location where you unziped the sources:
+   
+   cd C:\Users\natschlaeger\Downloads\Software\lsm\csim
+   
+   b) Run 
+   nmake -f Makefile.win
+
+   
