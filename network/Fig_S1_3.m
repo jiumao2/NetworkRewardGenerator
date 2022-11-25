@@ -1,53 +1,40 @@
-clear all
-close all
 addpath('../lsm/csim')
 getParameters;
-Tsim=1200;
-rng(rand_seed)
+Tsim = 3000;
 
+noise = (70:1:120)*1e-9;
+spike_per_min = zeros(length(noise),1);
 
-I_noise = 10:10:120;
-rate = zeros(size(I_noise));
+for k = 1:length(noise)
+    csim('destroy')
+    csim('set','dt',dt);
 
-for k = 1:length(I_noise)
-csim('destroy');
-csim('set','randSeed',rand_seed);
-csim('set','dt',dt);
-csim('set','nThreads',16);    
-    
-n=csim('create','LifNeuron');
-csim('set',n,'Vthresh',V_thresh);  % threshold  
-csim('set',n,'Trefract',T_refract); % refractory period
-csim('set',n,'Cm',C_m);        % tau_m = Cm * Rm
-csim('set',n,'Vreset',V_reset);   % V_reset
-csim('set',n,'Vinit',V_init);    % V_init
-csim('set',n,'Rm',R_m);
-csim('set',n,'Vresting',V_resting);
-csim('set',n,'Inoise',I_noise(k)*1e-9);
+    neuron = csim('create','LifNeuron');
+    csim('set',neuron,'Vthresh',V_thresh);  % threshold  
+    csim('set',neuron,'Trefract',T_refract); % refractory period
+    csim('set',neuron,'Cm',C_m);        % tau_m = Cm * Rm
+    csim('set',neuron,'Vreset',V_reset);   % V_reset
+    csim('set',neuron,'Iinject',0);  % I_back
+    csim('set',neuron,'Vinit',V_init);    % V_init
+    csim('set',neuron,'Rm',R_m);
+    csim('set',neuron,'Vresting',V_resting);
+    csim('set',neuron,'Inoise',noise(k));
 
-r=csim('create','Recorder');
-csim('set',r,'dt',0.5e-3);
+    r=csim('create','Recorder');
+    csim('set',r,'dt',dt);
+    csim('connect',r,neuron,'spikes');
 
-csim('connect',r,n,'Vm');
-csim('connect',r,n,'spikes');
+    csim('simulate',Tsim);
 
-csim('simulate',Tsim);
-
-t=csim('get',r,'traces');
-st=t.channel(2).data;
-rate(k) = length(st);
+    t=csim('get',r,'traces');
+    spike_per_min(k) = length(t.channel(1).data)/Tsim*60;
 end
+%%
 figure;
-plot(I_noise,rate/20)
-figure()
-plot(t.channel(1).dt:t.channel(1).dt:Tsim,t.channel(1).data)
-st=t.channel(2).data;
-line([st; st],[-0.045; -0.015]*ones(size(st)),'Color','k');
-ylabel([t.channel(1).fieldName ' [V]']);
-xlabel('time [sec]');
-ylim([-0.08,0])
-hold on
-yline(V_thresh)
-title('membrane potential and spikes');
-
-drawnow;
+semilogy(noise*1e9,spike_per_min,'x-')
+ylim([0.1,10])
+xlabel('Std. of noise in self-firing neurons (nA)')
+ylabel('Spontaneous bursting rate (per min)')
+%%
+figure;
+plot(noise*1e9,spike_per_min,'x-')

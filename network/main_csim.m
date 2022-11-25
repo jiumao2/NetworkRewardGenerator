@@ -1,11 +1,12 @@
 clear all
 close all
 
-tic
+% tic
 
 addpath('../lsm/csim')
 getParameters;
-Tsim = 60;
+Tsim = 100;
+csim('destroy')
 
 % set rand_seed
 rng(rand_seed)
@@ -45,6 +46,7 @@ non_self_firing_neurons(self_firing_neurons) = [];
 
 % create neurons
 count_neuron = 0;
+neuron = uint32(zeros(n_neuron,1));
 for k = 1:n_neuron
     neuron(k) = csim('create','LifNeuron');
     csim('set',neuron(k),'Vthresh',V_thresh);  % threshold  
@@ -80,6 +82,7 @@ for k = 1:n_neuron
 end
 
 count_synapse = 0;
+synapse = uint32(zeros(n_synapses*2,1));
 for k = 1:n_neuron
     for j = 1:n_neuron
         if connected(k,j)
@@ -119,59 +122,75 @@ for k = 1:n_neuron
         end
     end
 end
-% set recorder
-rec_Vm = csim('create','MexRecorder');
-csim('set',rec_Vm,'dt',dt);
-csim('connect',rec_Vm, neuron,'Vm');
+synapse(count_synapse+1:end) = [];
 
-rec_spikes = csim('create','MexRecorder');
-csim('set',rec_spikes,'dt',dt);
-csim('connect',rec_spikes, neuron,'spikes');
-
-rec_W = csim('create','MexRecorder');
-csim('set',rec_W,'dt',0.1);
-csim('connect',rec_W,synapse,'W');
+% % set recorder
+% rec_Vm = csim('create','MexRecorder');
+% csim('set',rec_Vm,'dt',dt);
+% csim('connect',rec_Vm, neuron,'Vm');
+% 
+% rec_spikes = csim('create','MexRecorder');
+% csim('set',rec_spikes,'dt',dt);
+% csim('connect',rec_spikes, neuron,'spikes');
+% 
+% rec_W = csim('create','MexRecorder');
+% csim('set',rec_W,'dt',0.1);
+% csim('connect',rec_W,synapse,'W');
 
 % simulate
-csim('simulate', Tsim)
-toc
+% csim('simulate', Tsim)
+% toc
 
+% %%
+% figure;
+% t = csim('get',rec_Vm,'traces');
+% plot((1:length(t.channel(1).data))*dt,t.channel(1).data*1000)
+% hold on
+% yline(-54)
+% yline(-60)
+% ylim([-100,100])
 %%
 figure;
-t = csim('get',rec_Vm,'traces');
-plot((1:length(t.channel(1).data))*dt,t.channel(1).data*1000)
-hold on
-yline(-54)
-yline(-60)
-ylim([-100,100])
-%%
-figure;
-W = zeros(length(synapse),1);
-for k = 1:length(synapse)
-    W(k) = csim('get',synapse(k),'W');
-end
-W_temp = W(W>0);
-histogram(W_temp, 'BinWidth', 0.001e-6)
-xlim([0,0.32e-6])
+xlim([-W_up*0.1,W_up*1.1])
 xlabel('Synaptic weights')
 ylabel('Number of synapses')
-%%
-figure;
-t = csim('get',rec_W,'traces');
-plot((1:length(t.channel(10).data))*dt,t.channel(10).data)
-ylim([0,0.3e-6])
-%% Raster
-x = [];
-y = [];
-t = csim('get',rec_spikes,'traces');
-for k = 1:100
-    data = t.channel(k).data;
-    for j = 1:min(1000,length(data))
-        x = [x, data(j), data(j), NaN];
-        y = [y, k-0.5, k+0.5, NaN];
+for t_sim = 1:100000
+    csim('simulate', 0.1)
+    if t_sim == 1
+        W = zeros(length(synapse),1);
+        for k = 1:length(synapse)
+            W(k) = csim('get',synapse(k),'W');
+        end
+        idx_excitory = find(W>0);
+        W_temp = W(W>0);
+        histogram(W_temp, 'BinWidth', 0.001e-6)
+    else
+        W = zeros(length(idx_excitory),1);
+        for k = 1:length(idx_excitory)
+            W(k) = csim('get',synapse(idx_excitory(k)),'W');
+        end
+        histogram(W, 'BinWidth', 0.001e-6)
     end
+    drawnow;
+    disp(t_sim*0.1)
 end
-figure;
-plot(x,y,'k-')
+% %%
+% figure;
+% t = csim('get',rec_W,'traces');
+% plot((1:length(t.channel(10).data))*dt,t.channel(10).data)
+% ylim([0,W_conductance])
+% %% Raster
+% x = [];
+% y = [];
+% t = csim('get',rec_spikes,'traces');
+% for k = 1:100
+%     data = t.channel(k).data;
+%     for j = 1:min(1000,length(data))
+%         x = [x, data(j), data(j), NaN];
+%         y = [y, k-0.5, k+0.5, NaN];
+%     end
+% end
+% figure;
+% plot(x,y,'k-')
 
     

@@ -1,7 +1,8 @@
 clear all
 close all
-
+getParameters;
 addpath('..');
+csim('destroy')
     
 i=csim('create','SpikingInputNeuron');
 s=csim('create','DynamicSpikingSynapse');
@@ -9,9 +10,23 @@ n=csim('create','LifNeuron');
 
 csim('set','randSeed',123456);
 
-csim('set',n,'Trefract',0.002,'Inoise',50e-9);
+csim('set',n,'Vthresh',V_thresh);  % threshold  
+csim('set',n,'Trefract',T_refract); % refractory period
+csim('set',n,'Cm',C_m);        % tau_m = Cm * Rm
+csim('set',n,'Vreset',V_reset);   % V_reset
+csim('set',n,'Iinject',0);  % I_back
+csim('set',n,'Vinit',V_init);    % V_init
+csim('set',n,'Rm',R_m);
+csim('set',n,'Vresting',V_resting);
+csim('set',n,'Inoise',0);
 
-csim('set',s,'W',2000e-9);
+csim('set',s,'W',406e-9);
+csim('set',s,'U',U);
+csim('set',s,'D',D);
+csim('set',s,'F',F);
+csim('set',s,'u0',u0);
+csim('set',s,'r0',R0);
+csim('set',s,'tau',tau);
 
 csim('connect',n,s);
 csim('connect',s,i);
