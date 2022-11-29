@@ -49,6 +49,9 @@ n_electrode = 60;
 n_neuron_recorded_per_electrode = 5;
 n_neuron_stimulated_per_electrode = 76;
 
+stimulus_amplitude = 20e-9;
+t_recording = 0.1;
+
 
 
 

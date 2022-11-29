@@ -3,14 +3,15 @@ close all
 
 addpath('../lsm/csim')
 getParameters;
-Tsim = 10;
+Tsim = 3600;
+rand_seed = 1;
+
 csim('destroy')
 
 % set rand_seed
 rng(rand_seed)
 csim('set','randSeed',rand_seed);
 csim('set','dt',dt);
-csim('set','nThreads',16);
 
 % Random placing the neurons
 loc_neuron = rand(n_neuron,2)*3;
@@ -139,60 +140,30 @@ for k = 1:n_neuron
 end
 
 % simulate
-tic
-csim('simulate', Tsim)
-toc
+for k = 1:round(Tsim/60)
+    tic
+    csim('simulate', 60);
+    toc
+end
 
-% %%
-% figure;
-% t = csim('get',rec_Vm,'traces');
-% plot((1:length(t.channel(1).data))*dt,t.channel(1).data*1000)
-% hold on
-% yline(-54)
-% yline(-60)
-% ylim([-100,100])
-%%
-% figure;
-% xlim([-W_up*0.1,W_up*1.1])
-% xlabel('Synaptic weights')
-% ylabel('Number of synapses')
-% for t_sim = 1:100000
-%     csim('simulate', 0.1)
-%     if t_sim == 1
-%         W = zeros(length(synapse),1);
-%         for k = 1:length(synapse)
-%             W(k) = csim('get',synapse(k),'W');
-%         end
-%         idx_excitory = find(W>0);
-%         W_temp = W(W>0);
-%         histogram(W_temp, 'BinWidth', 0.001e-6)
-%     else
-%         W = zeros(length(idx_excitory),1);
-%         for k = 1:length(idx_excitory)
-%             W(k) = csim('get',synapse(idx_excitory(k)),'W');
-%         end
-%         histogram(W, 'BinWidth', 0.001e-6)
-%     end
-%     drawnow;
-%     disp(t_sim*0.1)
-% end
-% %%
-% figure;
-% t = csim('get',rec_W,'traces');
-% plot((1:length(t.channel(10).data))*dt,t.channel(10).data)
-% ylim([0,W_conductance])
-% %% Raster
-% x = [];
-% y = [];
-% t = csim('get',rec_spikes,'traces');
-% for k = 1:100
-%     data = t.channel(k).data;
-%     for j = 1:min(1000,length(data))
-%         x = [x, data(j), data(j), NaN];
-%         y = [y, k-0.5, k+0.5, NaN];
-%     end
-% end
-% figure;
-% plot(x,y,'k-')
+t_total = Tsim;
+
+net = csim('export');
+save(['Net_seed_',num2str(rand_seed),'_',num2str(t_total)],...
+    'net',...
+    'neuron',...
+    'synapse',...
+    'rec_spikes',...
+    'loc_electrode',...
+    'loc_neuron',...
+    'distance_matrix',...
+    'neurons_recored_electrode',...
+    'neurons_stimulated_electrode',...
+    'connected',...
+    'excitory_neurons',...
+    'inhibitory_neurons',...
+    'self_firing_neurons',...
+    'non_self_firing_neurons',...
+    't_total')
 
     

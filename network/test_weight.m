@@ -1,7 +1,7 @@
 clear all
 close all
 getParameters;
-addpath('..');
+addpath('../lsm/csim');
 csim('destroy')
     
 i=csim('create','SpikingInputNeuron');
@@ -14,7 +14,7 @@ csim('set',n,'Vthresh',V_thresh);  % threshold
 csim('set',n,'Trefract',T_refract); % refractory period
 csim('set',n,'Cm',C_m);        % tau_m = Cm * Rm
 csim('set',n,'Vreset',V_reset);   % V_reset
-csim('set',n,'Iinject',0);  % I_back
+csim('set',n,'Iinject',30e-9);  % I_back
 csim('set',n,'Vinit',V_init);    % V_init
 csim('set',n,'Rm',R_m);
 csim('set',n,'Vresting',V_resting);
@@ -43,8 +43,13 @@ S.dt = -1;
 S.idx = i;
 S.data = [0.0299    0.1349    0.1474    0.3325    0.3440    0.3649    0.4136  0.4331    0.4337    0.6088];
 
-Tsim=1;
-csim('simulate',Tsim,S);
+Tsim=4;
+for k = 1:10
+    csim('simulate',0.1);
+    csim('set',n,'Iinject',0e-9);  % I_back
+    csim('simulate',0.3);
+    csim('set',n,'Iinject',30e-9);  % I_back
+end
 
 t=csim('get',r,'traces');
 
