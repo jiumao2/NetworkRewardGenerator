@@ -4,7 +4,7 @@ addpath('../lsm/csim');
 addpath('../network');
 
 getParameters;
-load('NeuralNetwork.mat');
+load('NeuralNetwork_1205.mat');
 
 % use the neural network after 5 hours simulation without external
 % stimulation and 2 hours simulation with RBS
@@ -123,7 +123,7 @@ for run = 1:5
 end
 dot_animat.MarkerFaceColor = 'none';
 dot_animat.MarkerEdgeColor = 'none';
-saveas(gca, 'pretraining', 'png');
+saveas(gca, 'pretraining_1205', 'png');
 
 %%
 action_desired = [-1 -1; 1 -1; 1 1; -1 1]; % * sqrt(2)
@@ -137,11 +137,11 @@ for q = 1:4
     CA_mean{q} = mean(trace_CA_pre);
     T{q} = action_desired(q,:) ./ CA_mean{q};
 end
-save('BehaviorData', 'CPS', 'CA_mean', 'T', 'trace_pre')
+save('BehaviorData_1205', 'CPS', 'CA_mean', 'T', 'trace_pre')
 
 %%
 net_after_pretraning = csim('export');
-save('../network/NeuralNetwork', ...
+save('../network/NeuralNetwork_1205', ...
     'net_5hours_free', 'net_with_RBS', 'net_after_pretraning', ...
     'loc_neuron', 'loc_electrode', 'col_electrode', 'row_electrode', ...
     'inhibitory_neurons', 'excitory_neurons', 'self_firing_neurons', ...

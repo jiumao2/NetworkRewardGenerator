@@ -2,7 +2,7 @@ clear all; close all;
 
 addpath('../lsm/csim')
 getParameters;
-load('NeuralNetwork.mat');
+load('NeuralNetwork_1205.mat');
 
 figure(); hold on;
 set(gca, 'Box', 'on', 'XTick', 0:1:3, 'YTick', 0:1:3);
@@ -73,14 +73,14 @@ end
 
 %%
 dt = 1e-3;
-for r = length(RBS_timepoint)-10:length(RBS_timepoint)
+for r = [6 11]
     for delta_t = -100e-3:dt:100e-3
         t = RBS_timepoint(r)+delta_t;
         stim_on_time = find(abs(t-RBS_timepoint)<=dt, 1);
-        if ~isempty(stim_on_time)
+        if delta_t >= 0 && delta_t <= 20e-3
             stim_electrode = RBS_electrode(stim_on_time);
             s_elec.CData(stim_electrode,:) = color_elec_stim(stim_electrode,:);
-            fprintf('Stimulation: %d/%d on (%d, %d)\n', r, length(RBS_timepoint), col_electrode(stim_electrode), row_electrode(stim_electrode));
+%             fprintf('Stimulation: %d/%d on (%d, %d)\n', r, length(RBS_timepoint), col_electrode(stim_electrode), row_electrode(stim_electrode));
         else
             s_elec.CData = color_elec;
         end
@@ -97,10 +97,11 @@ for r = length(RBS_timepoint)-10:length(RBS_timepoint)
         s_e.CData(rest_neuron_e,:) = color_e(rest_neuron_e,:);
         s_e.CData(spike_neuron_e,:) = color_e_spike(spike_neuron_e,:);
     
-        title_text = sprintf('Stimulation: %d/%d   Time from stimulation: %.0f ms', r, length(RBS_timepoint), delta_t*1000);
+        title_text = sprintf('Stimulation: %d/%d   Time from stimulation: %.0f ms', ceil(r/5), ceil(length(RBS_timepoint)/5), delta_t*1000);
         title(title_text);
 
         drawnow;
+        exportgraphics(gca,'SimulationRBS.gif','Append',true);
         pause(10*dt);
     end
     pause(.5);
