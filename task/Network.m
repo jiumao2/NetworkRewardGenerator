@@ -9,6 +9,7 @@ classdef Network < handle
         stimulator
         net_info
 
+        location
         fig
         ax
 
@@ -16,16 +17,22 @@ classdef Network < handle
         max_isi
         inter_dur
         post_dur
+        min_ipi
+        max_ipi
 
         CPS
         T
+        PTS
 
+        time = 0;
         r_inner = 5;
         r_outer = 50;
         one_milisecond = 1e-3;
         one_second = 1;
         one_minute = 60;
         one_hour = 3600;
+
+        n_neuron_recorded = 5;
     end
 
     methods
@@ -42,22 +49,27 @@ classdef Network < handle
             obj.recorder = net_info.recorder;
             obj.stimulator = net_info.stimulator;
             obj.net_info = net_info;
+
+            obj.location = obj.reset();
             obj.fig = figure('Visible','off');
             obj.ax = axes(obj.fig);
 
             obj.CPS = bh_info.CPS;
-            obj.T = sqrt(2) * bh_info.T;
+            obj.T = bh_info.T;
+            obj.PTS = obj.initPTS();
 
             obj.min_isi = 200*obj.one_milisecond; % min iter-stimulation interval
             obj.max_isi = 400*obj.one_milisecond; % max iter-stimulation interval
             obj.inter_dur = 5*obj.one_second; % duration between CPSs
             obj.post_dur = 100*obj.one_milisecond; % duration for recording after CPS probe
+            obj.min_ipi = 400*obj.one_milisecond;
+            obj.max_ipi = 800*obj.one_milisecond;
 
             % warm up
             obj.warmup()
         end
 
-        function observation = reset(obj)
+        function location = reset(obj)
             csim('reset');
             % reset the animat
             rho = randsrc(1, 1, [0:.1:obj.r_inner-.1; (0:.1:obj.r_inner-.1).^2 / sum((0:.1:obj.r_inner-.1).^2)]);
@@ -65,7 +77,7 @@ classdef Network < handle
             [x, y] = pol2cart(theta, rho);
 
             % return new observation
-            observation = [x, y];
+            location = [x, y];
         end
 
         function warmup(obj)
@@ -73,15 +85,46 @@ classdef Network < handle
             % when the network is reimported, STDP info will be lost
             % run another 10 minutes with RBS to stablize the network?
             stim_RBS = obj.getRBS(1*obj.one_minute);
-            csim('simulate', 1*obj.one_minute, stim_RBS);
-
-            % Calculate the transformations
-
-            % switch the sensory mapping
-
+            csim('simulate', 0.1*obj.one_minute, stim_RBS);
         end
 
-        function getRecordings(obj)
+        function switch_CPS(obj, Qa, Qb)
+            CPS_temp_a = obj.CPS{Qa};
+            CPS_temp_b = obj.CPS{Qb};
+
+            obj.CPS{Qa} = CPS_temp_b;
+            obj.CPS{Qb} = CPS_temp_a;
+        end
+
+        function firing_rate = getRecordings(obj, time_probe)
+            n_electrode = length(obj.recorder);
+            firing_rate = zeros(n_electrode, 1);
+            for k = 1:n_electrode
+                R = csim('get', obj.recorder(k), 'traces');
+                for n = 1:obj.n_neuron_recorded
+                    firing_rate(k) = firing_rate(k) + sum(R.channel(n).data>time_probe) / obj.post_dur;
+                end
+            end
+        end
+
+        function PTS = initPTS(obj)
+            % initialize PTSs pool
+            n_electrode = length(obj.stimulator);
+            laps = (-100:20:100) * obj.one_milisecond;
+            n_laps = length(laps);
+
+            PTS = cell(4, n_electrode*n_laps);
+            for q = 1:4
+                E1 = obj.CPS{q}.probe;
+                for E2 = 1:n_electrode
+                    for l = 1:n_laps
+                        n = (E2-1)*n_laps + l;
+                        PTS{q,n}(1).E1 = E1;
+                        PTS{q,n}(1).E2 = E2;
+                        PTS{q,n}(1).dt = laps(l);
+                    end
+                end
+            end
         end
 
         function [stim_CPS, time_probe] = getCPS(obj, quadrant)
@@ -115,7 +158,7 @@ classdef Network < handle
             RBS_electrode = randi(n_electrode, [1, length(RBS_interval)]);
             RBS_timepoint = [];
             for s = 1:5
-                RBS_timepoint = [RBS_timepoint cumsum(RBS_interval) + (s-1)*5e-3];
+                RBS_timepoint = [RBS_timepoint cumsum(RBS_interval) + (s-1)*5*obj.one_milisecond;];
             end
             RBS_timepoint = sort(RBS_timepoint);
             RBS_timepoint(RBS_timepoint>dur) = [];
@@ -133,31 +176,54 @@ classdef Network < handle
             end
         end
 
-        function PTS = initPTS(obj)
+        function stim_PTS = getPTS(obj, quadrant, action)
+            % set PTS stimulation schedule under input of quadrant and action
+            PTS_now = obj.PTS{quadrant, action};
+            stim_PTS = struct();
 
-            n_electrode = length(obj.stimulator);
-            laps = (-100:20:100) * obj.one_milisecond;
-            n_laps = length(laps);
-
-            PTS = cell(4, n_electrode*n_laps);
-            for q = 1:4
-                E1 = obj.CPS{q}.
-                for e = 1:n_electrode
-                    for l = 1:n_laps
-                        
-                    end
-                end
+            PTS_interval = obj.min_ipi + (obj.max_ipi-obj.min_ipi)*rand(1, ceil(obj.inter_dur/obj.min_ipi));
+            PTS_timepoint = [];
+            for s = 1:5
+                PTS_timepoint = [PTS_timepoint cumsum(PTS_interval) + (s-1)*5*obj.one_milisecond];
             end
+            PTS_timepoint = sort(PTS_timepoint);
+            PTS_timepoint(PTS_timepoint>obj.inter_dur) = [];
+            PTS_timepoint = PTS_timepoint - 200*obj.one_milisecond;
+
+            % return PTS stimulation
+            stim_PTS(1).spiking = 1;
+            stim_PTS(1).dt = -1;
+            stim_PTS(1).idx = obj.stimulator(PTS_now.E1);
+            stim_PTS(1).data = PTS_timepoint;
+
+            stim_PTS(2).spiking = 1;
+            stim_PTS(2).dt = -1;
+            stim_PTS(2).idx = obj.stimulator(PTS_now.E2);
+            stim_PTS(2).data = PTS_timepoint + PTS_now.dt;
         end
 
         function CA = getCA(obj, firing_rate)
             CA_x = sum(firing_rate.*(obj.net_info.col_electrode-4.5)) / sum(firing_rate);
             CA_y = sum(firing_rate.*(obj.net_info.row_electrode-4.5)) / sum(firing_rate);
-            
+
             CA = [CA_x, CA_y];
         end
 
-        function getQuadrant(obj)
+        function quadrant = getQuadrant(obj)
+            N = size(obj.location, 1);
+            quadrant = zeros(N,1);
+            for i = 1:N
+                theta = cart2pol(obj.location(i,1), obj.location(i,2));
+                if theta>=0 && theta<pi/2
+                    quadrant(i) = 1;
+                elseif theta>=pi/2
+                    quadrant(i) = 2;
+                elseif theta<-pi/2
+                    quadrant(i) = 3;
+                elseif theta<0 && theta>=-pi/2
+                    quadrant(i) = 4;
+                end
+            end
         end
 
         function [observation, reward, done] = step(obj, action)
@@ -166,38 +232,56 @@ classdef Network < handle
             % reward: distance closer to the origin compared to last step (to be modified)
             % done: if the animat is outside the boundary
 
-            % deliver RBS
+            quadrant_pre = obj.getQuadrant();
+            dist_to_origin_pre = hypot(obj.location(1), obj.location(2));
 
+            % deliver RBS or PTS
+            csim('reset');
+            if ~action
+                stim_RBS = obj.getRBS(obj.inter_dur);
+                csim('simulate', obj.inter_dur, stim_RBS);
+            else
+                stim_PTS = obj.getPTS(quadrant_pre, action);
+                csim('simulate', obj.inter_dur, stim_PTS);
+            end
 
             % deliver CPS
-            [stim_CPS, time_probe] = obj.getCPS(quadrant);
             csim('reset');
+            [stim_CPS, time_probe] = obj.getCPS(quadrant_pre);
             csim('simulate', time_probe+obj.post_dur, stim_CPS);
-            t = t + csim('get', 't');
+            obj.time = obj.time + csim('get', 't');
 
             % get recordings
-            firing_rate = zeros(n_electrode, 1);
-            for k = 1:n_electrode
-                R = csim('get', obj.recorder(k), 'traces');
-                for n = 1:n_neuron_recorded_per_electrode
-                    firing_rate(k) = firing_rate(k) + sum(R.channel(n).data>time_probe) / obj.post_dur;
-                end
-            end
+            firing_rate = obj.getRecordings(time_probe);
 
             % move the animat
             CA = obj.getCA(firing_rate);
-            observation = observation + obj.T .* CA;
-
+            obj.location = obj.location + obj.T{quadrant_pre} .* CA * sqrt(2);
 
             % deliver PTS or RBS according to the performance
 
 
             % compute the observation and the reward
+            quadrant_post = obj.getQuadrant();
+            dist_to_origin_post = hypot(obj.location(1), obj.location(2));
+            observation = quadrant_post;
 
+            if dist_to_origin_post <= obj.r_inner
+                reward = 1;
+            else
+                if dist_to_origin_post <= dist_to_origin_pre
+                    reward = 1;
+                else
+                    reward = 0;
+                end
+            end
 
             % check if the task is done
-
-
+            if dist_to_origin_post >= obj.r_outer
+                done = 1;
+            else
+                done = 0;
+            end
 
         end
 
