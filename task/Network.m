@@ -264,7 +264,7 @@ classdef Network < handle
             % compute the observation and the reward
             quadrant_post = obj.getQuadrant();
             dist_to_origin_post = hypot(obj.location(1), obj.location(2));
-            observation = quadrant_post;
+            observation = obj.location;
 
             if dist_to_origin_post <= obj.r_inner
                 reward = 1;
