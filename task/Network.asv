@@ -86,13 +86,6 @@ classdef Network < handle
 
             % return new observation
             location = [x, y];
-            
-            % reset the figure
-            cla(obj.ax)
-            obj.dot_animat = scatter(obj.ax, 0, 0, 24, 'filled', 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'none', 'LineWidth', 1);
-            viscircles(obj.ax, [0 0], obj.r_outer, 'Color', 'k');
-            viscircles(obj.ax, [0 0], obj.r_inner, 'Color', 'k');
-            obj.location_last = [];
         end
 
         function warmup(obj)
@@ -318,8 +311,6 @@ classdef Network < handle
             obj.dot_animat.YData = obj.location(2);
             uistack(obj.dot_animat, 'top');
             drawnow;
-            
-            obj.location_last = obj.location;
         end
 
 
