@@ -17,14 +17,18 @@ classdef algo_paper < handle
             obj.r_inner = 5;
         end
         
-        function action = compute_action(obj, observation)
+        function action = compute_action(obj, observation, reward)
             %METHOD1 Summary of this method goes here
             %   Detailed explanation goes here
             quadrant = getQuadrant(observation);
             if norm(observation) < obj.r_inner
                 action = 0;
             else
-                action = obj.random_choose(obj.prob(quadrant,:));
+                if reward==0
+                    action = obj.random_choose(obj.prob(quadrant,:));
+                else
+                    action = 0;
+                end
             end
             
             obj.observation = observation;

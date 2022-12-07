@@ -259,6 +259,7 @@ classdef Network < handle
                 stim_PTS = obj.getPTS(quadrant_pre, action);
                 csim('simulate', obj.inter_dur, stim_PTS);
             end
+            obj.time = obj.time + csim('get', 't');
 
             % deliver CPS
             csim('reset');

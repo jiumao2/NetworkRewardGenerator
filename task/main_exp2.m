@@ -7,12 +7,19 @@ algo = algo_paper();
 
 %%
 observation = env.reset();
+flag = 0;
+reward = 1;
 for k = 1:1000000
-    action = algo.compute_action(observation);
+    if env.time > 0.1*env.one_minute && flag==0
+        env.switch_CPS(1,3);
+        flag = 1;
+    end
+    action = algo.compute_action(observation, reward);
     [observation, reward, done] = env.step(action);
     env.render();
     algo.update(reward);
     if done
         observation = env.reset();
+        reward = 1;
     end
 end
