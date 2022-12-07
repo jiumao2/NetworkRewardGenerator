@@ -1,6 +1,6 @@
 function [stim_CPS, time_probe] = getCPS(min_isi, max_isi, CPS, quadrant, stimulator)
 
-% set RBS stimulation schedule
+% set CPS stimulation schedule
 
 CPS_now = CPS{quadrant};
 

@@ -4,8 +4,8 @@ addpath('../lsm/csim');
 addpath('../network');
 
 getParameters;
-load('NeuralNetwork.mat');
-load('BehaviorData.mat');
+load('NeuralNetwork_1205.mat');
+load('BehaviorData_1205.mat');
 
 %% perform task for one hour under CPS & RBS
 perform_CPS_RBS_1hour;

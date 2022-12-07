@@ -1,6 +1,10 @@
-net_info = load('NeuralNetwork.mat');
-env = Network(net_info);
+addpath('..\network\')
 
+net_info = load('NeuralNetwork_1205.mat');
+bh_info = load('BehaviorData.mat');
+env = Network(net_info, bh_info);
+
+%%
 observation = env.reset();
 for k = 1:1000000
     action = compute_action(observation);
@@ -12,7 +16,8 @@ for k = 1:1000000
     end
 end
 
+Q = zeros(4, 660);
 
 function action = compute_action(observation)
-    action = randi(60);
+    action = randi(660);
 end
