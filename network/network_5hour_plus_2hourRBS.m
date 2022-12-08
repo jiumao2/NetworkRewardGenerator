@@ -75,7 +75,9 @@ end
 connected = zeros(n_neuron);
 for k = 1:n_neuron
     dist = distance_matrix(k,:);
-    p_connect = exp(-dist)./(sum(exp(-dist))-1);
+    dist(k) = nan;
+    p_connect = exp(-dist)./(sum(exp(-dist), 'omitnan'));
+%     p_connect = (3*sqrt(2) - dist) ./ (sum(3*sqrt(2)-dist, 'omitnan'));
     idx_neurons = [1:k-1,k+1:n_neuron];
     p_connect = p_connect(idx_neurons);
     for j = 1: max(0,round(randn()*15+50))
@@ -132,13 +134,16 @@ synapse(count_synapse+1:end) = [];
 
 %% run without external stimulation for 5 hours in simulated time
 fprintf('start simulating without external stimulation for 5 hours...\n');
+tic
 for t = 1:5*one_hour/one_minute
     csim('simulate', one_minute);
-    fprintf('%d/%d minutes\n', t, 5*one_hour/one_minute);
+    fprintf('%d/%d min ', t, 5*one_hour/one_minute);
+    toc
 end
 clc;
 fprintf('finish 5-hour run without external stimulation.\n');
 
+%%
 net_5hours_free = csim('export');
 
 csim('reset');
@@ -180,11 +185,11 @@ end
 stimulator = uint32(zeros(n_electrode, 1));
 stimulator_synapse = uint32(zeros(n_electrode, n_neuron_stimulated_per_electrode));
 for k = 1:n_electrode
-    stimulator(k) = csim('create', 'SpikingInputNeuron');
+    stimulator(k) = csim('create', 'AnalogInputNeuron');
     for n = 1:n_neuron_stimulated_per_electrode
-        stimulator_synapse(k,n) = csim('create', 'StaticSpikingSynapse');
+        stimulator_synapse(k,n) = csim('create', 'StaticAnalogSynapse');
         csim('set', stimulator_synapse(k,n), 'W', W_stimulator);
-        csim('set', stimulator_synapse(k,n), 'tau', tau);
+        csim('set', stimulator_synapse(k,n), 'delay', 0);
         csim('connect', neuron_stimulated(k,n), stimulator(k), stimulator_synapse(k,n));
     end
 end
@@ -201,24 +206,34 @@ recorder_neuron = csim('create', 'Recorder');
 csim('set', recorder_neuron, 'dt', dt);
 csim('connect', recorder_neuron, neuron, 'spikes');
 
-% set RBS stimulation schedule
-[RBS_S, RBS_timepoint, RBS_electrode] = getRBS(min_isi, max_isi, 2*one_hour, stimulator, n_electrode);
-
+%% set RBS stimulation schedule
 %% run with random background stimulation (RBS) for another 2 hours
 fprintf('\nstart simulating with RBS for another 2 hours...\n');
-csim('simulate', 2*one_hour, RBS_S);
+
+tic
+for t = 1:CPS_interval:2*one_hour
+    csim('reset');
+    RBS_S = getRBS(min_isi, max_isi, CPS_interval, stimulator, n_electrode, dt, stimulus_amplitude, stimulus_duration);
+    csim('simulate', CPS_interval, RBS_S);
+    clear RBS_S
+    fprintf('%d/%d s ', t+CPS_interval-1, 2*one_hour);
+    toc
+end
 clc;
+toc
+
 fprintf('finish 2-hour run with RBS.\n');
 
 net_with_RBS = csim('export');
 
+%%
 for k = 1:n_electrode
     RBS_R(k) = csim('get', recorder(k), 'traces');
 end
 
 R_neuron = csim('get', recorder_neuron, 'traces');
 
-save('NeuralNetwork_1205', ...
+save('NeuralNetwork_1208', ...
     'net_5hours_free', 'net_with_RBS', ...
     'loc_neuron', 'loc_electrode', 'col_electrode', 'row_electrode', ...
     'inhibitory_neurons', 'excitory_neurons', 'self_firing_neurons', ...

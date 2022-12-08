@@ -4,7 +4,7 @@ addpath('../lsm/csim');
 addpath('../network');
 
 getParameters;
-load('NeuralNetwork_1205.mat');
+load('NeuralNetwork_1208.mat');
 
 % use the neural network after 5 hours simulation without external
 % stimulation and 2 hours simulation with RBS
@@ -16,7 +16,7 @@ rng(rand_seed)
 %% set CPSs
 CPS = cell(4, 1);
 % manually choose the CPS probe electrodes, to make sure that the animat's traces under different CPS seperate
-probe = [8 53 48 5]; % randperm(n_electrode, 4);
+probe = randperm(n_electrode, 4); % [8 53 48 5];
 
 for q = 1:4
     CPS{q}.probe = probe(q);
@@ -53,14 +53,14 @@ for run = 1:5
 
         while dist2origin<=r_outer
 
-            stim_RBS = getRBS(min_isi, max_isi, CPS_interval, stimulator, n_electrode);
-            [stim_CPS, time_probe] = getCPS(min_isi, max_isi, CPS, q, stimulator);
+            stim_RBS = getRBS(min_isi, max_isi, CPS_interval, stimulator, n_electrode, dt, stimulus_amplitude, stimulus_duration);
+            [stim_CPS, time_probe, duration] = getCPS(min_isi, max_isi, CPS, q, stimulator, dt, stimulus_amplitude, stimulus_duration);
 
             csim('reset');
             csim('simulate', CPS_interval, stim_RBS);
 
             csim('reset');
-            csim('simulate', time_probe+time_after_CPS, stim_CPS);
+            csim('simulate', duration, stim_CPS);
 
             firing_rate = zeros(n_electrode, 1);
             for k = 1:n_electrode
@@ -123,7 +123,7 @@ for run = 1:5
 end
 dot_animat.MarkerFaceColor = 'none';
 dot_animat.MarkerEdgeColor = 'none';
-saveas(gca, 'pretraining_1205', 'png');
+saveas(gca, 'pretraining_1208', 'png');
 
 %%
 action_desired = [-1 -1; 1 -1; 1 1; -1 1]; % * sqrt(2)
@@ -137,11 +137,11 @@ for q = 1:4
     CA_mean{q} = mean(trace_CA_pre);
     T{q} = action_desired(q,:) ./ CA_mean{q};
 end
-save('BehaviorData_1205', 'CPS', 'CA_mean', 'T', 'trace_pre')
-
+save('BehaviorData_1208', 'CPS', 'CA_mean', 'T', 'trace_pre')
+% 
 %%
 net_after_pretraning = csim('export');
-save('../network/NeuralNetwork_1205', ...
+save('../network/NeuralNetwork_1208', ...
     'net_5hours_free', 'net_with_RBS', 'net_after_pretraning', ...
     'loc_neuron', 'loc_electrode', 'col_electrode', 'row_electrode', ...
     'inhibitory_neurons', 'excitory_neurons', 'self_firing_neurons', ...

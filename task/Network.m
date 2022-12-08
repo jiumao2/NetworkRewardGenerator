@@ -14,6 +14,7 @@ classdef Network < handle
         fig
         ax
         dot_animat
+        trace = struct()
 
         min_isi
         max_isi
@@ -29,11 +30,15 @@ classdef Network < handle
         time = 0;
         r_inner = 5;
         r_outer = 50;
-        one_milisecond = 1e-3;
+        one_millisecond = 1e-3;
         one_second = 1;
         one_minute = 60;
         one_hour = 3600;
         color_animat = [1 0 0; 0 1 0; .5 .5 .5; 0 0 1];
+
+        dt
+        stimulus_duration
+        stimulus_amplitude
 
         n_neuron_recorded = 5;
     end
@@ -60,39 +65,49 @@ classdef Network < handle
             viscircles(obj.ax, [0 0], obj.r_inner, 'Color', 'k');
             axis(obj.ax, 'equal');
             obj.dot_animat = scatter(obj.ax, 0, 0, 24, 'filled', 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'none', 'LineWidth', 1);
-            obj.location = obj.reset();
+
+            obj.reset();
 
             obj.CPS = bh_info.CPS;
             obj.T = bh_info.T;
             obj.PTS = obj.initPTS();
 
-            obj.min_isi = 200*obj.one_milisecond; % min iter-stimulation interval
-            obj.max_isi = 400*obj.one_milisecond; % max iter-stimulation interval
+            obj.min_isi = 200*obj.one_millisecond; % min iter-stimulation interval
+            obj.max_isi = 400*obj.one_millisecond; % max iter-stimulation interval
             obj.inter_dur = 5*obj.one_second; % duration between CPSs
-            obj.post_dur = 100*obj.one_milisecond; % duration for recording after CPS probe
-            obj.min_ipi = 400*obj.one_milisecond;
-            obj.max_ipi = 800*obj.one_milisecond;
+            obj.post_dur = 100*obj.one_millisecond; % duration for recording after CPS probe
+            obj.min_ipi = 400*obj.one_millisecond;
+            obj.max_ipi = 800*obj.one_millisecond;
+
+            obj.dt = csim('get', 'dt');
+            obj.stimulus_duration = 20*obj.one_millisecond;
+            obj.stimulus_amplitude = 200e-9;
 
             % warm up
-            obj.warmup()
+%             obj.warmup()
         end
 
-        function location = reset(obj)
+        function observation = reset(obj)
             csim('reset');
             % reset the animat
             rho = randsrc(1, 1, [0:.1:obj.r_inner-.1; (0:.1:obj.r_inner-.1).^2 / sum((0:.1:obj.r_inner-.1).^2)]);
             theta = pi * (2*rand()-1);
             [x, y] = pol2cart(theta, rho);
 
-            % return new observation
-            location = [x, y];
+            obj.location = [x, y];
+            obj.trace.loc = [nan, nan; obj.location];
+            obj.trace.move = nan(2,1);
+            obj.trace.quad = [nan; obj.getQuadrant];
             
             % reset the figure
-            cla(obj.ax)
+            cla(obj.ax);
             obj.dot_animat = scatter(obj.ax, 0, 0, 24, 'filled', 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'none', 'LineWidth', 1);
             viscircles(obj.ax, [0 0], obj.r_outer, 'Color', 'k');
             viscircles(obj.ax, [0 0], obj.r_inner, 'Color', 'k');
             obj.location_last = [];
+
+            % return new observation
+            observation = obj.location;
         end
 
         function warmup(obj)
@@ -125,7 +140,7 @@ classdef Network < handle
         function PTS = initPTS(obj)
             % initialize PTSs pool
             n_electrode = length(obj.stimulator);
-            laps = (-100:20:100) * obj.one_milisecond;
+            laps = (-100:20:100) * obj.one_millisecond;
             n_laps = length(laps);
 
             PTS = cell(4, n_electrode*n_laps);
@@ -142,53 +157,58 @@ classdef Network < handle
             end
         end
 
-        function [stim_CPS, time_probe] = getCPS(obj, quadrant)
+        function [stim_CPS, time_probe, duration] = getCPS(obj, quadrant)
             % set CPS stimulation schedule
             CPS_now = obj.CPS{quadrant};
+            Elec = [CPS_now.first; CPS_now.second; CPS_now.probe];
+
             stim_CPS = struct();
 
-            % return CPS stimulation and the time of last probe stimulation
-            stim_CPS(1).spiking = 1;
-            stim_CPS(1).dt = -1;
-            stim_CPS(1).idx = obj.stimulator(CPS_now.first);
-            stim_CPS(1).data = obj.min_isi + (obj.max_isi-obj.min_isi) * rand() + (0:5e-3:20e-3);
+            onset = zeros(3,1);
+            onset(1) = obj.min_isi/2 + (obj.max_isi-obj.min_isi) * rand();
+            onset(2) = onset(1) + CPS_now.interval_1;
+            onset(3) = onset(2) + CPS_now.interval_2;
+            offset = onset + obj.stimulus_duration;
 
-            stim_CPS(2).spiking = 1;
-            stim_CPS(2).dt = -1;
-            stim_CPS(2).idx = obj.stimulator(CPS_now.second);
-            stim_CPS(2).data = stim_CPS(1).data(1) + CPS_now.interval_1 + (0:5e-3:20e-3);
+            time_probe = offset(end);
+            duration = offset(end) + 100e-3;
 
-            stim_CPS(3).spiking = 1;
-            stim_CPS(3).dt = -1;
-            stim_CPS(3).idx = obj.stimulator(CPS_now.probe);
-            stim_CPS(3).data = stim_CPS(2).data(1) + CPS_now.interval_2 + (0:5e-3:20e-3);
-
-            time_probe = stim_CPS(3).data(end);
+            timepoint = zeros(1, round(duration/obj.dt));
+            for e = 1:3
+                timepoint(e, round(onset(e)/obj.dt):round(offset(e)/obj.dt)) = obj.stimulus_amplitude;
+                stim_CPS(e).spiking = 0;
+                stim_CPS(e).dt = obj.dt;
+                stim_CPS(e).idx = obj.stimulator(Elec(e));
+                stim_CPS(e).data = timepoint(e, :);
+            end
         end
 
-        function stim_RBS = getRBS(obj, dur)
+        function stim_RBS = getRBS(obj, duration)
             % set RBS stimulation schedule
             n_electrode = length(obj.stimulator);
-            RBS_interval = obj.min_isi + (obj.max_isi-obj.min_isi)*rand(1, dur/obj.min_isi);
-            RBS_electrode = randi(n_electrode, [1, length(RBS_interval)]);
-            RBS_timepoint = [];
-            for s = 1:5
-                RBS_timepoint = [RBS_timepoint cumsum(RBS_interval) + (s-1)*5*obj.one_milisecond;];
-            end
-            RBS_timepoint = sort(RBS_timepoint);
-            RBS_timepoint(RBS_timepoint>dur) = [];
-            RBS_number = length(RBS_timepoint);
-            RBS_electrode = repmat(RBS_electrode, 5, 1);
-            RBS_electrode = RBS_electrode(1:RBS_number);
+            RBS_interval = obj.min_isi + (obj.max_isi-obj.min_isi)*rand(1, duration/obj.min_isi);
 
-            % return RBS stimulation
+            RBS_offset = cumsum(RBS_interval) + obj.stimulus_duration;
+            RBS_offset(RBS_offset>duration) = [];
+            RBS_offset = RBS_offset - obj.min_isi/2;
+            RBS_onset = RBS_offset - obj.stimulus_duration;
+
+            n_stimulation = length(RBS_onset);
+            RBS_electrode = randi(n_electrode, [1, n_stimulation]);
+
+            timepoint = zeros(n_electrode, round(duration/obj.dt));
+            for s = 1:n_stimulation
+                timepoint(RBS_electrode(s), round(RBS_onset(s)/obj.dt):round(RBS_offset(s)/obj.dt)) = obj.stimulus_amplitude;
+            end
+
             stim_RBS = struct();
             for k = 1:n_electrode
-                stim_RBS(k).spiking = 1;
-                stim_RBS(k).dt = -1;
+                stim_RBS(k).spiking = 0;
+                stim_RBS(k).dt = obj.dt;
                 stim_RBS(k).idx = obj.stimulator(k);
-                stim_RBS(k).data = RBS_timepoint(RBS_electrode==k);
+                stim_RBS(k).data = timepoint(k, :);
             end
+
         end
 
         function stim_PTS = getPTS(obj, quadrant, action)
@@ -197,24 +217,33 @@ classdef Network < handle
             stim_PTS = struct();
 
             PTS_interval = obj.min_ipi + (obj.max_ipi-obj.min_ipi)*rand(1, ceil(obj.inter_dur/obj.min_ipi));
-            PTS_timepoint = [];
-            for s = 1:5
-                PTS_timepoint = [PTS_timepoint cumsum(PTS_interval) + (s-1)*5*obj.one_milisecond];
+
+            PTS_offset = cumsum(PTS_interval) + obj.stimulus_duration;
+            PTS_offset(PTS_offset>obj.inter_dur) = [];
+            PTS_offset = PTS_offset - obj.min_ipi/2;
+            PTS_onset = PTS_offset - obj.stimulus_duration;
+
+            PTS_offset_2 = PTS_offset + PTS_now.dt;
+            PTS_onset_2 = PTS_onset + PTS_now.dt;
+
+            n_stimulation = length(PTS_onset);
+
+            timepoint = zeros(2, round(obj.inter_dur/obj.dt));
+            for s = 1:n_stimulation
+                timepoint(1, round(PTS_onset(s)/obj.dt):round(PTS_offset(s)/obj.dt)) = obj.stimulus_amplitude;
+                timepoint(2, round(PTS_onset_2(s)/obj.dt):round(PTS_offset_2(s)/obj.dt)) = obj.stimulus_amplitude;
             end
-            PTS_timepoint = sort(PTS_timepoint);
-            PTS_timepoint(PTS_timepoint>obj.inter_dur) = [];
-            PTS_timepoint = PTS_timepoint - 200*obj.one_milisecond;
 
             % return PTS stimulation
-            stim_PTS(1).spiking = 1;
-            stim_PTS(1).dt = -1;
+            stim_PTS(1).spiking = 0;
+            stim_PTS(1).dt = obj.dt;
             stim_PTS(1).idx = obj.stimulator(PTS_now.E1);
-            stim_PTS(1).data = PTS_timepoint;
+            stim_PTS(1).data = timepoint(1,:);
 
-            stim_PTS(2).spiking = 1;
-            stim_PTS(2).dt = -1;
+            stim_PTS(2).spiking = 0;
+            stim_PTS(2).dt = obj.dt;
             stim_PTS(2).idx = obj.stimulator(PTS_now.E2);
-            stim_PTS(2).data = PTS_timepoint + PTS_now.dt;
+            stim_PTS(2).data = timepoint(2,:);
         end
 
         function CA = getCA(obj, firing_rate)
@@ -272,10 +301,8 @@ classdef Network < handle
 
             % move the animat
             CA = obj.getCA(firing_rate);
+            obj.location_last = obj.location;
             obj.location = obj.location + obj.T{quadrant_pre} .* CA * sqrt(2);
-
-            % deliver PTS or RBS according to the performance
-
 
             % compute the observation and the reward
             quadrant_post = obj.getQuadrant();
@@ -320,10 +347,8 @@ classdef Network < handle
             uistack(obj.dot_animat, 'top');
             drawnow;
             
-            obj.location_last = obj.location;
+%             obj.location_last = obj.location;
         end
-
-
 
     end
 end

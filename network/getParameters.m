@@ -52,9 +52,10 @@ tau_post = 0.075;
 n_electrode = 60;
 n_neuron_recorded_per_electrode = 5;
 n_neuron_stimulated_per_electrode = 76;
-W_stimulator = 0.7*W_conductance;
 
-stimulus_amplitude = 20e-9;
+W_stimulator = 1;
+stimulus_amplitude = 200e-9;
+stimulus_duration = 20e-3;
 t_recording = 0.1;
 
 % for task
