@@ -83,8 +83,8 @@ classdef Network < handle
             obj.stimulus_duration = 20*obj.one_millisecond;
             obj.stimulus_amplitude = 200e-9;
 
-            % warm up
-%             obj.warmup()
+%             warm up
+            obj.warmup()
         end
 
         function observation = reset(obj)
@@ -121,9 +121,13 @@ classdef Network < handle
         function switch_CPS(obj, Qa, Qb)
             CPS_temp_a = obj.CPS{Qa};
             CPS_temp_b = obj.CPS{Qb};
+            T_temp_a = obj.T{Qa};
+            T_temp_b = obj.T{Qb};            
 
             obj.CPS{Qa} = CPS_temp_b;
             obj.CPS{Qb} = CPS_temp_a;
+            obj.T{Qa} = T_temp_b;
+            obj.T{Qb} = T_temp_a;
         end
 
         function firing_rate = getRecordings(obj, time_probe)
@@ -301,8 +305,10 @@ classdef Network < handle
 
             % move the animat
             CA = obj.getCA(firing_rate);
+            step_length = norm(obj.T{quadrant_pre} .* CA);
+            step_scale = max(1,step_length/5);
             obj.location_last = obj.location;
-            obj.location = obj.location + obj.T{quadrant_pre} .* CA * sqrt(2);
+            obj.location = obj.location + obj.T{quadrant_pre} .* CA * sqrt(2) ./step_scale;
 
             % compute the observation and the reward
             quadrant_post = obj.getQuadrant();
@@ -345,9 +351,8 @@ classdef Network < handle
             obj.dot_animat.XData = obj.location(1);
             obj.dot_animat.YData = obj.location(2);
             uistack(obj.dot_animat, 'top');
+            title(obj.ax, sprintf('%.2f min', obj.time./obj.one_minute));
             drawnow;
-            
-%             obj.location_last = obj.location;
         end
 
     end
