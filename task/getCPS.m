@@ -21,7 +21,7 @@ for e = 1:3
     stim_CPS(e).spiking = 0;
     stim_CPS(e).dt = dt;
     stim_CPS(e).idx = stimulator(Elec(e));
-    stim_CPS(e).data = timepoint(e);
+    stim_CPS(e).data = timepoint(e,:);
 end
 
 end
