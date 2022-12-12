@@ -1,8 +1,18 @@
-clear
-load('log_20221209_180431.mat')
+% clear
+% load('log/log_20221212_114809_withoutPTS.mat')
+load('log/log_20221212_113928_PTS.mat')
 addpath('../network/')
 getParameters;
-
+%%
+traj_length = zeros(length(traj),1);
+for k = 1:length(traj)
+    traj_length(k) = size(traj{k},1);
+end
+figure;
+plot(traj_length,'x')
+disp(['mean trajectory length: ',num2str(mean(traj_length))]);
+disp(['percentage of exiting from quadrant 1 or 3: ',num2str(sum((log(:,1)==1|log(:,1)==3))./size(log,1))])
+%%
 fig = figure('Visible','on', 'Units', 'centimeters', 'Position', [2 2 10 10], 'Renderer', 'opengl');
 ax = axes(fig,'XAxisLocation', 'origin', 'YAxisLocation', 'origin', 'XColor', 'none', 'YColor', 'none', ...
     'XLim', [-50 50], 'YLim', [-50 50], 'XTick', [], 'YTick', [], 'LineWidth', 2, 'NextPlot', 'add');
