@@ -115,15 +115,27 @@ classdef Network < handle
             % when the network is reimported, STDP info will be lost
             % run another 10 minutes with RBS to stablize the network?
             stim_RBS = obj.getRBS(1*obj.one_minute);
-            csim('simulate', 0.1*obj.one_minute, stim_RBS);
+            csim('simulate', 1*obj.one_minute, stim_RBS);
         end
 
         function switch_CPS(obj, Qa, Qb)
             CPS_temp_a = obj.CPS{Qa};
             CPS_temp_b = obj.CPS{Qb};
+            T_temp_a = obj.T{Qa};
+            T_temp_b = obj.T{Qb};
 
+            obj.T{Qa} = T_temp_b;
+            obj.T{Qb} = T_temp_a;
             obj.CPS{Qa} = CPS_temp_b;
             obj.CPS{Qb} = CPS_temp_a;
+
+            for p = 1:660
+                PTS_temp_a = obj.PTS{Qa, p};
+                PTS_temp_b = obj.PTS{Qb, p};
+
+                obj.PTS{Qa, p} = PTS_temp_b;
+                obj.PTS{Qb, p} = PTS_temp_a;
+            end
         end
 
         function firing_rate = getRecordings(obj, time_probe)
@@ -292,8 +304,8 @@ classdef Network < handle
 
             % deliver CPS
             csim('reset');
-            [stim_CPS, time_probe] = obj.getCPS(quadrant_pre);
-            csim('simulate', time_probe+obj.post_dur, stim_CPS);
+            [stim_CPS, time_probe, duration] = obj.getCPS(quadrant_pre);
+            csim('simulate', duration, stim_CPS);
             obj.time = obj.time + csim('get', 't');
 
             % get recordings
@@ -301,8 +313,10 @@ classdef Network < handle
 
             % move the animat
             CA = obj.getCA(firing_rate);
+            step_length = norm(obj.T{quadrant_pre} .* CA);
+            step_scale = max(1,step_length/5);
             obj.location_last = obj.location;
-            obj.location = obj.location + obj.T{quadrant_pre} .* CA * sqrt(2);
+            obj.location = obj.location + obj.T{quadrant_pre} .* CA * sqrt(2) ./step_scale;
 
             % compute the observation and the reward
             quadrant_post = obj.getQuadrant();
@@ -341,10 +355,11 @@ classdef Network < handle
             end
             
             obj.dot_animat.MarkerEdgeColor = [0 0 0];
-            obj.dot_animat.MarkerFaceColor = [0 0 1];
+            obj.dot_animat.MarkerFaceColor = obj.color_animat(quadrant,:);
             obj.dot_animat.XData = obj.location(1);
             obj.dot_animat.YData = obj.location(2);
             uistack(obj.dot_animat, 'top');
+            title(obj.ax, sprintf('%.2f min', obj.time./obj.one_minute));
             drawnow;
             
 %             obj.location_last = obj.location;
