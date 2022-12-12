@@ -83,8 +83,8 @@ classdef Network < handle
             obj.stimulus_duration = 20*obj.one_millisecond;
             obj.stimulus_amplitude = 200e-9;
 
-            % warm up
-%             obj.warmup()
+%             warm up
+            obj.warmup()
         end
 
         function observation = reset(obj)
@@ -361,8 +361,6 @@ classdef Network < handle
             uistack(obj.dot_animat, 'top');
             title(obj.ax, sprintf('%.2f min', obj.time./obj.one_minute));
             drawnow;
-            
-%             obj.location_last = obj.location;
         end
 
     end

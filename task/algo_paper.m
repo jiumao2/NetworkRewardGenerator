@@ -5,8 +5,8 @@ classdef algo_paper < handle
     properties
         prob
         r_inner
-        observation
-        action
+        action_last
+        action_next
     end
     
     methods
@@ -15,41 +15,43 @@ classdef algo_paper < handle
             %   Detailed explanation goes here
             obj.prob = ones(4,660);
             obj.r_inner = 5;
+            obj.action_last = 0;
+            obj.action_next = [];
         end
         
-        function action = compute_action(obj, observation, reward)
+        function action = compute_action(obj, observation)
             %METHOD1 Summary of this method goes here
             %   Detailed explanation goes here
-            quadrant = getQuadrant(observation);
             if norm(observation) < obj.r_inner
                 action = 0;
-            else
-                if reward==0
-                    action = obj.random_choose(obj.prob(quadrant,:));
-                else
-                    action = 0;
-                end
+                obj.action_last = action;
+                return 
             end
             
-            obj.observation = observation;
-            obj.action = action;
+            if ~isempty(obj.action_next)
+                action = obj.action_next;
+            else
+                quadrant = getQuadrant(observation);
+                action = obj.random_choose(obj.prob(quadrant,:));
+            end
+            obj.action_last = action;
         end
         
         function action = sample(obj)
             action = randi(660);
         end
         
-        function update(obj, reward)
-            if obj.action==0
-                return
+        function update(obj, reward, quadrant)
+            if reward == 1 && obj.action_last ~= 0
+                obj.action_next = obj.action_last;
+                obj.prob(quadrant,obj.action_last) = obj.prob(quadrant,obj.action_last)+1;
+            elseif reward == 0 && obj.action_last ~= 0 && sum(obj.prob(quadrant,:),'all')>1
+                obj.prob(quadrant,obj.action_last) = obj.prob(quadrant,obj.action_last)-1;
+                obj.action_next = [];
+            else
+                obj.action_next = [];
             end
-            
-            quadrant = getQuadrant(obj.observation);
-            if reward<=0 && sum(obj.prob(quadrant,obj.action),'all')>1
-                obj.prob(quadrant,obj.action) = obj.prob(quadrant,obj.action)-1;
-            elseif reward>=1
-                obj.prob(quadrant,obj.action) = obj.prob(quadrant,obj.action)+1;
-            end
+
         end
         
         function out = random_choose(obj, prob)
