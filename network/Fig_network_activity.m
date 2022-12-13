@@ -2,10 +2,12 @@ clear all; close all;
 
 addpath('../lsm/csim')
 getParameters;
-load('NeuralNetwork_1205.mat');
+load('NeuralNetwork_1210.mat');
 
 figure(); hold on;
-set(gca, 'Box', 'on', 'XTick', 0:1:3, 'YTick', 0:1:3);
+set(gcf, 'Name', 'Network', 'Units', 'centimeters', 'Position', [3 3 15 15], ...
+    'PaperPositionMode', 'auto', 'color', 'w', 'renderer', 'opengl', 'toolbar', 'none', 'resize', 'off');
+set(gca, 'Box', 'on', 'XTick', 0:1:3, 'YTick', 0:1:3, 'FontSize', 12);
 
 % excitory connections
 x_excitory = [];
@@ -48,16 +50,6 @@ s_elec = scatter(loc_electrode(:,1),loc_electrode(:,2),72,color_elec,'filled','M
 
 axis square
 
-% %
-% for e = 1:n_electrode
-%     s_elec.CData(e,:) = color_elec_stim(e,:);
-%     fprintf('(%d, %d)\n', row_electrode(e), col_electrode(e));
-%     drawnow; pause(.1);
-%     s_elec.CData(e,:) = color_elec(e,:);
-%     drawnow;
-% end
-% clc;
-
 %%
 spike_timepoint_i = []; spike_id_i = [];
 for n = 1:length(inhibitory_neurons)
@@ -71,39 +63,59 @@ for n = 1:length(excitory_neurons)
     spike_id_e = cat(2, spike_id_e, n*ones(1, length(R_neuron.channel(excitory_neurons(n)).data)));
 end
 
+RBS_timepoint = []; RBS_electrode = [];
+for e = 1:60
+    stim_time = find(RBS_S(e).data>0);
+    if ~isempty(stim_time)
+        stim_lap = [0 diff(stim_time)];
+        RBS_timepoint = [RBS_timepoint stim_time(stim_lap~=1)*1e-4];
+        RBS_electrode = [RBS_electrode e*ones(1,sum(stim_lap~=1))];
+    end
+end
+[RBS_timepoint, sort_id] = sort(RBS_timepoint);
+RBS_electrode = RBS_electrode(sort_id);
 %%
+F = struct('cdata', [], 'colormap', []); k = 0;
 dt = 1e-3;
-for r = [6 11]
-    for delta_t = -100e-3:dt:100e-3
+for r = 5:10
+    for delta_t = -25e-3:dt:50e-3
+        k = k+1;
         t = RBS_timepoint(r)+delta_t;
         stim_on_time = find(abs(t-RBS_timepoint)<=dt, 1);
-        if delta_t >= 0 && delta_t <= 20e-3
+        if delta_t == 0
             stim_electrode = RBS_electrode(stim_on_time);
             s_elec.CData(stim_electrode,:) = color_elec_stim(stim_electrode,:);
-%             fprintf('Stimulation: %d/%d on (%d, %d)\n', r, length(RBS_timepoint), col_electrode(stim_electrode), row_electrode(stim_electrode));
         else
             s_elec.CData = color_elec;
         end
     
-        spike_i_time = abs(t-spike_timepoint_i)<=dt;
+        spike_i_time = t-spike_timepoint_i<=dt & t-spike_timepoint_i>0;
         rest_neuron_i = setdiff(1:length(inhibitory_neurons), spike_id_i(spike_i_time));
         spike_neuron_i = setdiff(1:length(inhibitory_neurons), rest_neuron_i);
         s_i.CData(rest_neuron_i,:) = color_i(rest_neuron_i,:);
         s_i.CData(spike_neuron_i,:) = color_i_spike(spike_neuron_i,:);
     
-        spike_e_time = abs(t-spike_timepoint_e)<=dt;
+        spike_e_time = spike_timepoint_e>=t & spike_timepoint_e<t+dt;
         rest_neuron_e = setdiff(1:length(excitory_neurons), spike_id_e(spike_e_time));
         spike_neuron_e = setdiff(1:length(excitory_neurons), rest_neuron_e);
         s_e.CData(rest_neuron_e,:) = color_e(rest_neuron_e,:);
         s_e.CData(spike_neuron_e,:) = color_e_spike(spike_neuron_e,:);
     
-        title_text = sprintf('Stimulation: %d/%d   Time from stimulation: %.0f ms', ceil(r/5), ceil(length(RBS_timepoint)/5), delta_t*1000);
+        title_text = sprintf('Time from stimulation onset: %.0f ms', delta_t*1000);
         title(title_text);
 
         drawnow;
-        exportgraphics(gca,'SimulationRBS.gif','Append',true);
-        pause(10*dt);
+        F(k) = getframe(gcf);
     end
-    pause(.5);
 end
 
+%%
+writerObj = VideoWriter('Network_stimulation.avi');
+writerObj.FrameRate = 10;
+open(writerObj);
+
+for ifrm=1:length(F)
+    frame = F(ifrm);
+    writeVideo(writerObj, frame);
+end
+close(writerObj);

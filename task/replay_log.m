@@ -1,6 +1,6 @@
 % clear
 % load('log/log_20221212_114809_withoutPTS.mat')
-load('log/log_20221212_113928_PTS.mat')
+load('log/log_greedy20221213_111436.mat')
 addpath('../network/')
 getParameters;
 %%
@@ -13,14 +13,16 @@ plot(traj_length,'x')
 disp(['mean trajectory length: ',num2str(mean(traj_length))]);
 disp(['percentage of exiting from quadrant 1 or 3: ',num2str(sum((log(:,1)==1|log(:,1)==3))./size(log,1))])
 %%
-fig = figure('Visible','on', 'Units', 'centimeters', 'Position', [2 2 10 10], 'Renderer', 'opengl');
+fig = figure('Visible','on', 'Units', 'centimeters', 'Position', [2 2 15 15], 'Renderer', 'opengl');
 ax = axes(fig,'XAxisLocation', 'origin', 'YAxisLocation', 'origin', 'XColor', 'none', 'YColor', 'none', ...
     'XLim', [-50 50], 'YLim', [-50 50], 'XTick', [], 'YTick', [], 'LineWidth', 2, 'NextPlot', 'add');
 viscircles(ax, [0 0], r_outer, 'Color', 'k');
 viscircles(ax, [0 0], r_inner, 'Color', 'k');
 axis(ax, 'equal');
 dot_animat = scatter(ax, 0, 0, 24, 'filled', 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'none', 'LineWidth', 1);
-time = 0
+time = 0;
+
+F = struct('cdata', [], 'colormap', []); frame = 0;
 for k = 1:length(traj)
     cla(ax);
     dot_animat = scatter(ax, 0, 0, 24, 'filled', 'MarkerFaceColor', 'none', 'MarkerEdgeColor', 'none', 'LineWidth', 1);
@@ -43,5 +45,19 @@ for k = 1:length(traj)
         uistack(dot_animat, 'top');
         title(ax,sprintf('trial %d; time: %.1f min', k, time));
         drawnow;
+        frame = frame + 1;
+        F(frame) = getframe(gcf);
     end
 end
+
+%%
+%%
+writerObj = VideoWriter('trajectory_long_greedy.avi');
+writerObj.FrameRate = 20;
+open(writerObj);
+
+for ifrm=1:length(F)
+    frame = F(ifrm);
+    writeVideo(writerObj, frame);
+end
+close(writerObj);
