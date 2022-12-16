@@ -261,6 +261,13 @@ classdef Network < handle
         function CA = getCA(obj, firing_rate)
             CA_x = sum(firing_rate.*(obj.net_info.col_electrode-4.5)) / sum(firing_rate);
             CA_y = sum(firing_rate.*(obj.net_info.row_electrode-4.5)) / sum(firing_rate);
+            
+            if isnan(CA_x)
+                CA_x = 0;
+            end
+            if isnan(CA_y)
+                CA_y = 0;
+            end
 
             CA = [CA_x, CA_y];
         end
